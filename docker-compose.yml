@@ -1,0 +1,36 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: production
+      SECRET_KEY: troque-esta-chave-em-producao
+      DATABASE_URL: postgresql://noc:noc@db:5432/noc
+      MONITOR_INTERVAL: "10"
+      CHECK_TIMEOUT: "3"
+    volumes:
+      - uploads_data:/app/app/static/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    cap_add:
+      - NET_RAW   # necessário para o monitoramento ICMP (ping) dentro do container
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: noc
+      POSTGRES_PASSWORD: noc
+      POSTGRES_DB: noc
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db_data:
+  uploads_data:

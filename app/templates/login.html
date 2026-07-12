@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="login-screen">
+  <div class="login-card">
+    <div class="login-header">
+      <span class="topbar-dot"></span>
+      <h1>NOC<span>/</span>monitor</h1>
+      <p>Entre para acessar o painel de monitoramento.</p>
+    </div>
+    <form method="post" class="login-form">
+      <label>
+        <span>Usuário</span>
+        <input type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label>
+        <span>Senha</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn-primary btn-block">Entrar</button>
+    </form>
+    <p class="login-hint">Acesso inicial: <code>admin</code> / <code>admin123</code></p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Serviços{% endblock %}
+{% block content %}
+<div class="board-toolbar">
+  <div>
+    <h1 class="board-title">Serviços cadastrados</h1>
+    <p class="board-subtitle">{{ services|length }} serviço{{ 's' if services|length != 1 else '' }} no total</p>
+  </div>
+  <a href="{{ url_for('main.servico_novo') }}" class="btn-primary">+ Novo serviço</a>
+</div>
+
+{% if not services %}
+<div class="empty-state">
+  <p>Nenhum serviço cadastrado ainda.</p>
+  <a href="{{ url_for('main.servico_novo') }}" class="btn-primary">Cadastrar primeiro serviço</a>
+</div>
+{% else %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Nome</th>
+      <th>Host</th>
+      <th>Tipo</th>
+      <th>Status</th>
+      <th>Latência</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in services %}
+    <tr>
+      <td>
+        {% if s.imagem %}
+          <img src="{{ url_for('static', filename='uploads/' ~ s.imagem) }}" class="table-avatar" alt="">
+        {% else %}
+          <div class="table-avatar table-avatar-placeholder">{{ s.nome[:1]|upper }}</div>
+        {% endif %}
+      </td>
+      <td>{{ s.nome }}</td>
+      <td>{{ s.host }}{% if s.porta %}:{{ s.porta }}{% endif %}</td>
+      <td>{{ s.tipo|upper }}</td>
+      <td><span class="badge badge-{{ s.status }}">{{ s.status|capitalize }}</span></td>
+      <td>{{ (s.ping ~ ' ms') if s.ping is not none else '—' }}</td>
+      <td class="row-actions">
+        <a href="{{ url_for('main.historico', service_id=s.id) }}">Histórico</a>
+        <a href="{{ url_for('main.servico_editar', service_id=s.id) }}">Editar</a>
+        <form method="post" action="{{ url_for('main.servico_excluir', service_id=s.id) }}"
+              onsubmit="return confirm('Remover o serviço {{ s.nome }}?');">
+          <button type="submit" class="link-danger">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

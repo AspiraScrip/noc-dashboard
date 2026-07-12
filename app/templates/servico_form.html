@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar serviço' if service else 'Novo serviço' }}{% endblock %}
+{% block content %}
+<div class="form-page">
+  <h1 class="board-title">{{ 'Editar serviço' if service else 'Cadastrar serviço' }}</h1>
+
+  <form method="post" enctype="multipart/form-data" class="entity-form">
+    <label>
+      <span>Nome do serviço</span>
+      <input type="text" name="nome" required value="{{ service.nome if service else '' }}">
+    </label>
+
+    <label>
+      <span>Host / IP / URL</span>
+      <input type="text" name="host" required placeholder="ex: 10.0.0.1 ou meusite.com"
+             value="{{ service.host if service else '' }}">
+    </label>
+
+    <div class="form-row">
+      <label>
+        <span>Tipo de verificação</span>
+        <select name="tipo" id="tipo-select">
+          {% for opt, label in [('icmp','ICMP (ping)'), ('tcp','TCP (porta)'), ('http','HTTP'), ('https','HTTPS')] %}
+          <option value="{{ opt }}" {{ 'selected' if service and service.tipo == opt }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label id="porta-field">
+        <span>Porta</span>
+        <input type="number" name="porta" min="1" max="65535"
+               value="{{ service.porta if service and service.porta else '' }}">
+      </label>
+    </div>
+
+    <label>
+      <span>Imagem do cartão (opcional)</span>
+      <input type="file" name="imagem" accept=".png,.jpg,.jpeg,.gif,.webp">
+      {% if service and service.imagem %}
+        <span class="field-hint">Imagem atual: {{ service.imagem }}. Envie um novo arquivo para substituir.</span>
+      {% endif %}
+    </label>
+
+    <div class="form-actions">
+      <a href="{{ url_for('main.servicos_lista') }}" class="btn-ghost">Cancelar</a>
+      <button type="submit" class="btn-primary">{{ 'Salvar alterações' if service else 'Cadastrar' }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Mostra o campo "porta" apenas quando fizer sentido (TCP e opcionalmente HTTP/HTTPS)
+  const tipoSelect = document.getElementById('tipo-select');
+  const portaField = document.getElementById('porta-field');
+  function syncPortaField() {
+    portaField.style.display = tipoSelect.value === 'icmp' ? 'none' : '';
+  }
+  tipoSelect.addEventListener('change', syncPortaField);
+  syncPortaField();
+</script>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Painel{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+  <aside class="online-sidebar">
+    <div class="online-sidebar-header">
+      <span>Serviços online</span>
+      <span class="online-count" id="online-count">{{ services|selectattr('status', 'equalto', 'verde')|list|length }}</span>
+    </div>
+    <ul class="online-list" id="online-list">
+      {% for s in services|selectattr('status', 'equalto', 'verde')|list %}
+      <li class="online-item" data-id="{{ s.id }}">
+        <span class="online-ball"></span>
+        <span class="online-name">{{ s.nome }}</span>
+        <span class="online-ping">{{ (s.ping ~ ' ms') if s.ping is not none else '—' }}</span>
+      </li>
+      {% else %}
+      <li class="online-empty" id="online-empty">Nenhum serviço online no momento.</li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <div class="board-main">
+    <div class="board-toolbar">
+      <div>
+        <h1 class="board-title">Painel de operações</h1>
+        <p class="board-subtitle" id="board-subtitle">Verificando {{ services|length }} serviço{{ 's' if services|length != 1 else '' }}…</p>
+      </div>
+      <div class="board-legend">
+        <span class="legend-item"><i class="dot dot-verde"></i> Online</span>
+        <span class="legend-item"><i class="dot dot-amarelo"></i> Degradado</span>
+        <span class="legend-item"><i class="dot dot-vermelho"></i> Indisponível</span>
+        <span class="legend-item"><i class="dot dot-cinza"></i> Aguardando</span>
+      </div>
+    </div>
+
+    {% if not services %}
+    <div class="empty-state">
+      <p>Nenhum serviço cadastrado ainda.</p>
+      <a href="{{ url_for('main.servico_novo') }}" class="btn-primary">Cadastrar primeiro serviço</a>
+    </div>
+    {% else %}
+    <div id="board" class="board">
+      {% for s in services %}
+      <article class="card status-{{ s.status }}" data-id="{{ s.id }}"
+                style="transform: translate({{ s.pos_x }}px, {{ s.pos_y }}px);"
+                data-x="{{ s.pos_x }}" data-y="{{ s.pos_y }}">
+        <div class="card-drag-handle">
+          <span class="status-pulse"></span>
+          {% if s.imagem %}
+            <img src="{{ url_for('static', filename='uploads/' ~ s.imagem) }}" class="card-avatar" alt="">
+          {% else %}
+            <div class="card-avatar card-avatar-placeholder">{{ s.nome[:1]|upper }}</div>
+          {% endif %}
+          <div class="card-heading">
+            <span class="card-name">{{ s.nome }}</span>
+            <span class="card-host">{{ s.host }}{% if s.porta %}:{{ s.porta }}{% endif %} · {{ s.tipo|upper }}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-metric">
+            <span class="metric-label">Latência</span>
+            <span class="metric-value card-ping">{{ (s.ping ~ ' ms') if s.ping is not none else '—' }}</span>
+          </div>
+          <div class="card-metric">
+            <span class="metric-label">Verificado</span>
+            <span class="metric-value card-check">{{ s.ultima_verificacao.strftime('%H:%M:%S') if s.ultima_verificacao else 'aguardando' }}</span>
+          </div>
+        </div>
+        <a href="{{ url_for('main.historico', service_id=s.id) }}" class="card-history-link">Ver histórico →</a>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.27/interact.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

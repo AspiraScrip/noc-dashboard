@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Histórico · {{ service.nome }}{% endblock %}
+{% block content %}
+<div class="board-toolbar">
+  <div>
+    <h1 class="board-title">Histórico · {{ service.nome }}</h1>
+    <p class="board-subtitle">{{ service.host }}{% if service.porta %}:{{ service.porta }}{% endif %} · {{ service.tipo|upper }}</p>
+  </div>
+  <a href="{{ url_for('main.dashboard') }}" class="btn-ghost">← Voltar ao painel</a>
+</div>
+
+{% if not registros %}
+<div class="empty-state">
+  <p>Ainda não há registros de verificação para este serviço.</p>
+</div>
+{% else %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Data / hora</th>
+      <th>Status</th>
+      <th>Tempo de resposta</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in registros %}
+    <tr>
+      <td>{{ r.data.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+      <td><span class="badge badge-{{ r.status }}">{{ r.status|capitalize }}</span></td>
+      <td>{{ (r.tempo_resposta ~ ' ms') if r.tempo_resposta is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

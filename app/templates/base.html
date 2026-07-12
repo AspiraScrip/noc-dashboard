@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}NOC{% endblock %} · Monitor de Serviços</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-dot"></span>
+    <span>NOC<strong>/</strong>monitor</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">Painel</a>
+    <a href="{{ url_for('main.servicos_lista') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('main.servico') }}">Serviços</a>
+  </nav>
+  <div class="topbar-user">
+    <span>{{ current_user.username }}</span>
+    <a href="{{ url_for('auth.logout') }}" class="btn-ghost">Sair</a>
+  </div>
+</header>
+{% endif %}
+
+<main class="content">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>
