@@ -1,0 +1,8 @@
+
+# Ignorar uma pasta inteira e seu conteúdo
+__pycache__/
+.venv/
+app/__pycache__/
+
+# Ignorar todas as imagens com extensão .png
+*.png
