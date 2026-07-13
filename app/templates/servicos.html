@@ -2,7 +2,7 @@
 {% block title %}Serviços{% endblock %}
 {% block content %}
 <div class="board-toolbar">
-  <div>
+  <div class="container-global">
     <h1 class="board-title">Serviços cadastrados</h1>
     <p class="board-subtitle">{{ services|length }} serviço{{ 's' if services|length != 1 else '' }} no total</p>
   </div>
@@ -16,6 +16,8 @@
 </div>
 {% else %}
 <table class="data-table">
+  <colgroup>
+    <col style="width: 60px;">   <col style="width: 200px;">  <col style="width: 250px;">  <col style="width: 100px;">  <col style="width: 120px;">  <col style="width: 120px;">  <col style="width: 220px;">  </colgroup>
   <thead>
     <tr>
       <th></th>
@@ -24,6 +26,7 @@
       <th>Tipo</th>
       <th>Status</th>
       <th>Latência</th>
+      <th>Ações</th>
       <th></th>
     </tr>
   </thead>

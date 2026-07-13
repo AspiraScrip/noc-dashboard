@@ -3,124 +3,212 @@ import subprocess
 import platform
 import threading
 import time
+import re
 from datetime import datetime
-
 import requests
-
-
+# Sessão HTTP reutilizável
+http_session = requests.Session()
 def _check_icmp(host, timeout):
-    """Verifica disponibilidade via ping do sistema operacional.
-    Retorna (ok: bool, tempo_ms: float|None).
+    """
+    Teste ICMP.
+    Retorna o tempo real informado pelo ping.
     """
     is_windows = platform.system().lower() == "windows"
-    count_flag = "-n" if is_windows else "-c"
-    timeout_flag = "-w" if is_windows else "-W"
-    timeout_value = str(int(timeout * 1000)) if is_windows else str(int(timeout))
-
-    cmd = ["ping", count_flag, "1", timeout_flag, timeout_value, host]
-
-    start = time.monotonic()
+    if is_windows:
+        cmd = [
+            "ping",
+            "-n",
+            "1",
+            "-w",
+            str(int(timeout * 1000)),
+            host
+        ]
+    else:
+        cmd = [
+            "ping",
+            "-c",
+            "1",
+            "-W",
+            str(max(1, int(timeout))),
+            host
+        ]
     try:
         result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=timeout + 2,
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout + 1
         )
-        elapsed_ms = (time.monotonic() - start) * 1000
-        ok = result.returncode == 0
-        return ok, elapsed_ms if ok else None
-    except (subprocess.TimeoutExpired, OSError):
+        if result.returncode != 0:
+            return False, None
+        output = result.stdout
+        match = re.search(
+            r"(?:tempo|time)[=<]?\s*([\d\.]+)\s*ms",
+            output,
+            re.IGNORECASE
+        )
+        if match:
+            return True, float(match.group(1))
+        if re.search(
+            r"(?:tempo|time)<1ms",
+            output,
+            re.IGNORECASE
+        ):
+            return True, 1.0
+        return True, None
+    except (
+        subprocess.TimeoutExpired,
+        OSError
+    ):
         return False, None
-
-
 def _check_tcp(host, port, timeout):
-    start = time.monotonic()
+    """
+    Mede somente abertura da conexão TCP.
+    """
+    inicio = time.perf_counter()
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            elapsed_ms = (time.monotonic() - start) * 1000
-            return True, elapsed_ms
-    except (socket.timeout, OSError):
+        sock = socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM
+        )
+        sock.settimeout(timeout)
+        sock.connect(
+            (host, port)
+        )
+        sock.close()
+        tempo = (
+            time.perf_counter() - inicio
+        ) * 1000
+        return True, tempo
+    except (
+        socket.timeout,
+        OSError
+    ):
         return False, None
-
-
 def _check_http(url, timeout, verify_ssl=True):
-    start = time.monotonic()
+    """
+    Teste HTTP otimizado.
+    """
+    inicio = time.perf_counter()
     try:
-        resp = requests.get(url, timeout=timeout, verify=verify_ssl, allow_redirects=True)
-        elapsed_ms = (time.monotonic() - start) * 1000
-        ok = resp.status_code < 400
-        return ok, elapsed_ms
+        resposta = http_session.head(
+            url,
+            timeout=(
+                timeout,
+                timeout
+            ),
+            verify=verify_ssl,
+            allow_redirects=False
+        )
+        tempo = (
+            time.perf_counter() - inicio
+        ) * 1000
+        # Considera serviço ativo
+        # mesmo com erro de aplicação
+        ok = resposta.status_code < 500
+        return ok, tempo
     except requests.RequestException:
         return False, None
-
-
 def check_service(service, timeout):
-    """Executa a verificação apropriada de acordo com o tipo do serviço."""
     tipo = service.tipo
-
     if tipo == "icmp":
-        return _check_icmp(service.host, timeout)
-
+        return _check_icmp(
+            service.host,
+            timeout
+        )
     if tipo == "tcp":
         porta = service.porta or 80
-        return _check_tcp(service.host, porta, timeout)
-
+        return _check_tcp(
+            service.host,
+            porta,
+            timeout
+        )
     if tipo in ("http", "https"):
         host = service.host
-        if not host.startswith("http://") and not host.startswith("https://"):
-            scheme = "https" if tipo == "https" else "http"
-            porta_str = f":{service.porta}" if service.porta else ""
-            host = f"{scheme}://{host}{porta_str}"
-        return _check_http(host, timeout)
-
+        if not host.startswith(
+            ("http://", "https://")
+        ):
+            protocolo = (
+                "https"
+                if tipo == "https"
+                else "http"
+            )
+            porta = (
+                f":{service.porta}"
+                if service.porta
+                else ""
+            )
+            host = (
+                f"{protocolo}://"
+                f"{host}"
+                f"{porta}"
+            )
+        return _check_http(
+            host,
+            timeout
+        )
     return False, None
-
-
 def _classify_status(ok, tempo_ms, degraded_threshold_ms):
     if not ok:
         return "vermelho"
-    if tempo_ms is not None and tempo_ms > degraded_threshold_ms:
+    if (
+        tempo_ms is not None
+        and tempo_ms > degraded_threshold_ms
+    ):
         return "amarelo"
     return "verde"
-
-
 def run_check_cycle(app):
-    """Uma passada de verificação por todos os serviços cadastrados."""
     from app import db
     from app.models import Service, Historico
-
     with app.app_context():
         timeout = app.config["CHECK_TIMEOUT"]
-        degraded_threshold = app.config["DEGRADED_THRESHOLD_MS"]
-
+        degraded_threshold = (
+            app.config["DEGRADED_THRESHOLD_MS"]
+        )
         services = Service.query.all()
         for service in services:
-            ok, tempo_ms = check_service(service, timeout)
-            status = _classify_status(ok, tempo_ms, degraded_threshold)
-
+            ok, tempo_ms = check_service(
+                service,
+                timeout
+            )
+            status = _classify_status(
+                ok,
+                tempo_ms,
+                degraded_threshold
+            )
             service.status = status
-            service.ping = round(tempo_ms, 1) if tempo_ms is not None else None
-            service.ultima_verificacao = datetime.utcnow()
-
-            db.session.add(Historico(
-                service_id=service.id,
-                status=status,
-                tempo_resposta=service.ping,
-            ))
-
+            service.ping = (
+                round(tempo_ms, 2)
+                if tempo_ms is not None
+                else None
+            )
+            service.ultima_verificacao = (
+                datetime.utcnow()
+            )
+            db.session.add(
+                Historico(
+                    service_id=service.id,
+                    status=status,
+                    tempo_resposta=service.ping
+                )
+            )
         db.session.commit()
-
-
 def _monitor_loop(app):
     interval = app.config["MONITOR_INTERVAL"]
     while True:
         try:
             run_check_cycle(app)
-        except Exception as exc:  # nunca deixar a thread morrer por um erro pontual
-            app.logger.error(f"Erro no ciclo de monitoramento: {exc}")
+        except Exception as exc:
+            app.logger.exception(
+                f"Erro no monitoramento: {exc}"
+            )
         time.sleep(interval)
-
-
 def start_monitor(app):
-    thread = threading.Thread(target=_monitor_loop, args=(app,), daemon=True)
+    thread = threading.Thread(
+        target=_monitor_loop,
+        args=(app,),
+        daemon=True
+    )
     thread.start()
     return thread

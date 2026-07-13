@@ -6,11 +6,17 @@ from flask import (
 )
 from flask_login import login_required
 from werkzeug.utils import secure_filename
+from PIL import Image, UnidentifiedImageError
 
 from app import db
-from app.models import Service, Historico
+from app.models import Service, Historico, Connection
 
 main_bp = Blueprint("main", __name__)
+
+# Dimensão máxima (px) para o lado maior da imagem do cartão. Isso evita que
+# fotos enviadas em resolução alta (celular, câmera etc.) quebrem o layout
+# dos cartões e deixem a página pesada para carregar.
+MAX_IMAGE_DIM = 512
 
 
 def _allowed_file(filename):
@@ -28,7 +34,26 @@ def _save_image(file_storage):
     ext = file_storage.filename.rsplit(".", 1)[-1].lower()
     filename = secure_filename(f"{uuid.uuid4().hex}.{ext}")
     path = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-    file_storage.save(path)
+
+    try:
+        # Valida que o arquivo é realmente uma imagem (não só a extensão).
+        image = Image.open(file_storage.stream)
+        image.verify()
+        file_storage.stream.seek(0)
+        image = Image.open(file_storage.stream)
+
+        # JPEG não suporta canal alpha/paleta.
+        if ext in ("jpg", "jpeg") and image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+
+        # Redimensiona mantendo a proporção — resolve imagens gigantes
+        # quebrando o design dos cartões e da tabela de serviços.
+        image.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM), Image.LANCZOS)
+        image.save(path)
+    except UnidentifiedImageError:
+        flash("O arquivo enviado não parece ser uma imagem válida.", "warning")
+        return None
+
     return filename
 
 
@@ -53,7 +78,8 @@ def _next_grid_position():
 @login_required
 def dashboard():
     services = Service.query.order_by(Service.nome).all()
-    return render_template("dashboard.html", services=services)
+    connections = [c.to_dict() for c in Connection.query.all()]
+    return render_template("dashboard.html", services=services, connections=connections)
 
 
 @main_bp.route("/servicos")

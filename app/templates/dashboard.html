@@ -1,83 +1,211 @@
 {% extends "base.html" %}
-{% block title %}Painel{% endblock %}
-
+{% block title %}
+Painel
+{% endblock %}
 {% block content %}
 <div class="dashboard-layout">
+  <!-- ==========================
+       SERVIÇOS ONLINE
+  =========================== -->
   <aside class="online-sidebar">
     <div class="online-sidebar-header">
       <span>Serviços online</span>
-      <span class="online-count" id="online-count">{{ services|selectattr('status', 'equalto', 'verde')|list|length }}</span>
+      <span class="online-count" id="online-count">
+        {{ services|selectattr('status', 'equalto', 'verde')|list|length }}
+      </span>
     </div>
     <ul class="online-list" id="online-list">
-      {% for s in services|selectattr('status', 'equalto', 'verde')|list %}
+      {% for s in services if s.status == 'verde' %}
       <li class="online-item" data-id="{{ s.id }}">
         <span class="online-ball"></span>
-        <span class="online-name">{{ s.nome }}</span>
-        <span class="online-ping">{{ (s.ping ~ ' ms') if s.ping is not none else '—' }}</span>
+        <span class="online-name">
+          {{ s.nome }}
+        </span>
+        <span class="online-ping">
+          {% if s.ping is not none %}
+            {{ s.ping }} ms
+          {% else %}
+            —
+          {% endif %}
+        </span>
       </li>
       {% else %}
-      <li class="online-empty" id="online-empty">Nenhum serviço online no momento.</li>
+      <li class="online-empty" id="online-empty">
+        Nenhum serviço online no momento.
+      </li>
       {% endfor %}
     </ul>
   </aside>
-
-  <div class="board-main">
+  <!-- ==========================
+       SERVIÇOS OFFLINE
+  =========================== -->
+  <aside class="offline-sidebar">
+    <div class="offline-sidebar-header">
+      <span>
+        Serviços offline
+      </span>
+      <span class="offline-count" id="offline-count">
+        {{ services|selectattr('status', 'equalto', 'vermelho')|list|length }}
+      </span>
+    </div>
+    <ul class="offline-list" id="offline-list">
+      {% for s in services if s.status == 'vermelho' %}
+      <li class="offline-item" data-id="{{ s.id }}">
+        <span class="offline-ball"></span>
+        <span class="offline-name">
+          {{ s.nome }}
+        </span>
+        <span class="offline-ping">
+          {% if s.ping is not none %}
+            {{ s.ping }} ms
+          {% else %}
+            —
+          {% endif %}
+        </span>
+      </li>
+      {% else %}
+      <li class="offline-empty" id="offline-empty">
+        Nenhum serviço offline no momento.
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <!-- ==========================
+       ÁREA PRINCIPAL
+  =========================== -->
+  <main class="board-main">
     <div class="board-toolbar">
       <div>
-        <h1 class="board-title">Painel de operações</h1>
-        <p class="board-subtitle" id="board-subtitle">Verificando {{ services|length }} serviço{{ 's' if services|length != 1 else '' }}…</p>
+        <h1 class="board-title">
+          Painel de operações
+        </h1>
+        <p class="board-subtitle" id="board-subtitle">
+          Verificando {{ services|length }}
+          serviço{{ 's' if services|length != 1 else '' }}…
+        </p>
       </div>
-      <div class="board-legend">
-        <span class="legend-item"><i class="dot dot-verde"></i> Online</span>
-        <span class="legend-item"><i class="dot dot-amarelo"></i> Degradado</span>
-        <span class="legend-item"><i class="dot dot-vermelho"></i> Indisponível</span>
-        <span class="legend-item"><i class="dot dot-cinza"></i> Aguardando</span>
+      <div class="board-actions">
+        <div class="board-legend">
+          <span class="legend-item">
+            <i class="dot dot-verde"></i>
+            Online
+          </span>
+          <span class="legend-item">
+            <i class="dot dot-amarelo"></i>
+            Degradado
+          </span>
+          <span class="legend-item">
+            <i class="dot dot-vermelho"></i>
+            Indisponível
+          </span>
+          <span class="legend-item">
+            <i class="dot dot-cinza"></i>
+            Aguardando
+          </span>
+        </div>
+        {% if services %}
+        <button type="button" id="connect-mode-btn" class="btn-ghost btn-connect">
+          🔗 Conectar serviços
+        </button>
+        {% endif %}
       </div>
     </div>
-
+    <p class="connect-hint" id="connect-hint" hidden>
+      Modo conexão ativo: clique em dois cartões para ligá-los. Clique numa linha para remover uma conexão.
+    </p>
     {% if not services %}
-    <div class="empty-state">
-      <p>Nenhum serviço cadastrado ainda.</p>
-      <a href="{{ url_for('main.servico_novo') }}" class="btn-primary">Cadastrar primeiro serviço</a>
-    </div>
+    <section class="empty-state">
+      <p>
+        Nenhum serviço cadastrado ainda.
+      </p>
+      <a href="{{ url_for('main.servico_novo') }}"
+         class="btn-primary">
+        Cadastrar primeiro serviço
+      </a>
+    </section>
     {% else %}
-    <div id="board" class="board">
+    <section id="board" class="board">
+      <svg id="connections-layer" class="connections-layer"></svg>
+      <script id="connections-data" type="application/json">{{ connections|tojson }}</script>
       {% for s in services %}
-      <article class="card status-{{ s.status }}" data-id="{{ s.id }}"
-                style="transform: translate({{ s.pos_x }}px, {{ s.pos_y }}px);"
-                data-x="{{ s.pos_x }}" data-y="{{ s.pos_y }}">
+      <article class="card status-{{ s.status }}"
+               data-id="{{ s.id }}"
+               data-status="{{ s.status }}"
+               style="
+               transform:
+               translate(
+               {{ s.pos_x or 0 }}px,
+               {{ s.pos_y or 0 }}px);
+               "
+               data-x="{{ s.pos_x or 0 }}"
+               data-y="{{ s.pos_y or 0 }}">
         <div class="card-drag-handle">
           <span class="status-pulse"></span>
           {% if s.imagem %}
-            <img src="{{ url_for('static', filename='uploads/' ~ s.imagem) }}" class="card-avatar" alt="">
+          <img 
+          src="{{ url_for('static',
+          filename='uploads/' ~ s.imagem) }}"
+          class="card-avatar"
+          alt="{{ s.nome }}">
           {% else %}
-            <div class="card-avatar card-avatar-placeholder">{{ s.nome[:1]|upper }}</div>
+          <div class="card-avatar card-avatar-placeholder">
+            {{ s.nome[:1]|upper }}
+          </div>
           {% endif %}
           <div class="card-heading">
-            <span class="card-name">{{ s.nome }}</span>
-            <span class="card-host">{{ s.host }}{% if s.porta %}:{{ s.porta }}{% endif %} · {{ s.tipo|upper }}</span>
+            <span class="card-name">
+              {{ s.nome }}
+            </span>
+            <span class="card-host">
+              {{ s.host }}
+              {% if s.porta %}
+                :{{ s.porta }}
+              {% endif %}
+              ·
+              {{ s.tipo|upper }}
+            </span>
           </div>
         </div>
         <div class="card-body">
           <div class="card-metric">
-            <span class="metric-label">Latência</span>
-            <span class="metric-value card-ping">{{ (s.ping ~ ' ms') if s.ping is not none else '—' }}</span>
+            <span class="metric-label">
+              Latência
+            </span>
+            <span class="metric-value card-ping">
+              {% if s.ping is not none %}
+                {{ s.ping }} ms
+              {% else %}
+                —
+              {% endif %}
+            </span>
           </div>
           <div class="card-metric">
-            <span class="metric-label">Verificado</span>
-            <span class="metric-value card-check">{{ s.ultima_verificacao.strftime('%H:%M:%S') if s.ultima_verificacao else 'aguardando' }}</span>
+            <span class="metric-label">
+              Verificado
+            </span>
+            <span class="metric-value card-check">
+              {% if s.ultima_verificacao %}
+                {{ s.ultima_verificacao.strftime('%H:%M:%S') }}
+              {% else %}
+                aguardando
+              {% endif %}
+            </span>
           </div>
         </div>
-        <a href="{{ url_for('main.historico', service_id=s.id) }}" class="card-history-link">Ver histórico →</a>
+        <a href="{{ url_for('main.historico',
+             service_id=s.id) }}"
+           class="card-history-link">
+          Ver histórico →
+        </a>
       </article>
       {% endfor %}
-    </div>
+    </section>
     {% endif %}
-  </div>
+  </main>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.27/interact.min.js"></script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static',
+filename='js/dashboard.js') }}"></script>
 {% endblock %}

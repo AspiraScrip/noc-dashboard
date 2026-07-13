@@ -60,6 +60,45 @@ class Service(db.Model):
         }
 
 
+class Connection(db.Model):
+    __tablename__ = "connections"
+
+    id = db.Column(db.Integer, primary_key=True)
+    origem_id = db.Column(
+        db.Integer,
+        db.ForeignKey("services.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    destino_id = db.Column(
+        db.Integer,
+        db.ForeignKey("services.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    origem = db.relationship(
+        "Service",
+        foreign_keys=[origem_id],
+        backref=db.backref("conexoes_saida", cascade="all, delete-orphan"),
+    )
+    destino = db.relationship(
+        "Service",
+        foreign_keys=[destino_id],
+        backref=db.backref("conexoes_entrada", cascade="all, delete-orphan"),
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("origem_id", "destino_id", name="uq_connection_par"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "origem_id": self.origem_id,
+            "destino_id": self.destino_id,
+        }
+
+
 class Historico(db.Model):
     __tablename__ = "historico"
 
