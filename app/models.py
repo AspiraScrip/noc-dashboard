@@ -26,19 +26,26 @@ class Service(db.Model):
     host = db.Column(db.String(255), nullable=False)
     tipo = db.Column(db.String(10), nullable=False)  # icmp | tcp | http | https
     porta = db.Column(db.Integer, nullable=True)
-    imagem = db.Column(db.String(255), nullable=True)  # nome do arquivo em static/uploads
+    imagem = db.Column(db.String(255), nullable=True)
 
-    status = db.Column(db.String(10), default="cinza")  # verde | amarelo | vermelho | cinza
-    ping = db.Column(db.Float, nullable=True)  # tempo de resposta em ms
+    status = db.Column(db.String(10), default="cinza")
+    ping = db.Column(db.Float, nullable=True)
     pos_x = db.Column(db.Integer, default=20)
     pos_y = db.Column(db.Integer, default=20)
+
     ultima_verificacao = db.Column(db.DateTime, nullable=True)
 
-    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    criado_em = db.Column(
+        db.DateTime,
+        default=datetime.now
+    )
 
     historico = db.relationship(
-        "Historico", backref="service", lazy="dynamic",
-        cascade="all, delete-orphan", order_by="Historico.data.desc()"
+        "Historico",
+        backref="service",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="Historico.data.desc()",
     )
 
     def to_dict(self):
@@ -55,7 +62,8 @@ class Service(db.Model):
             "pos_y": self.pos_y,
             "ultima_verificacao": (
                 self.ultima_verificacao.strftime("%d/%m/%Y %H:%M:%S")
-                if self.ultima_verificacao else None
+                if self.ultima_verificacao
+                else None
             ),
         }
 
@@ -64,31 +72,48 @@ class Connection(db.Model):
     __tablename__ = "connections"
 
     id = db.Column(db.Integer, primary_key=True)
+
     origem_id = db.Column(
         db.Integer,
         db.ForeignKey("services.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     destino_id = db.Column(
         db.Integer,
         db.ForeignKey("services.id", ondelete="CASCADE"),
         nullable=False,
     )
-    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    criado_em = db.Column(
+        db.DateTime,
+        default=datetime.now
+    )
 
     origem = db.relationship(
         "Service",
         foreign_keys=[origem_id],
-        backref=db.backref("conexoes_saida", cascade="all, delete-orphan"),
+        backref=db.backref(
+            "conexoes_saida",
+            cascade="all, delete-orphan",
+        ),
     )
+
     destino = db.relationship(
         "Service",
         foreign_keys=[destino_id],
-        backref=db.backref("conexoes_entrada", cascade="all, delete-orphan"),
+        backref=db.backref(
+            "conexoes_entrada",
+            cascade="all, delete-orphan",
+        ),
     )
 
     __table_args__ = (
-        db.UniqueConstraint("origem_id", "destino_id", name="uq_connection_par"),
+        db.UniqueConstraint(
+            "origem_id",
+            "destino_id",
+            name="uq_connection_par",
+        ),
     )
 
     def to_dict(self):
@@ -103,10 +128,20 @@ class Historico(db.Model):
     __tablename__ = "historico"
 
     id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey("services.id"), nullable=False)
+
+    service_id = db.Column(
+        db.Integer,
+        db.ForeignKey("services.id"),
+        nullable=False,
+    )
+
     status = db.Column(db.String(10), nullable=False)
     tempo_resposta = db.Column(db.Float, nullable=True)
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+
+    data = db.Column(
+        db.DateTime,
+        default=datetime.now
+    )
 
     def to_dict(self):
         return {
